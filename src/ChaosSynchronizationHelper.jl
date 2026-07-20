@@ -939,9 +939,9 @@ function compute_coupling_fraction(
 end
 
 
-function is_in_coupling_region(x::Vector{Float64}, coupling_region_filename::String, numberofcouplingregions::Int64, )
+function is_in_coupling_region(system_name::AbstractString, x::Vector{Float64}, coupling_region_filename::String, numberofcouplingregions::Int64, )
 
-    coupling_regions_data = DelimitedFiles.readdlm(DrWatson.datadir("roessler",coupling_region_filename), '\t', Float64)
+    coupling_regions_data = DelimitedFiles.readdlm(DrWatson.datadir(system_name,coupling_region_filename), '\t', Float64)
 
     for k::Int in 1:numberofcouplingregions
         if( (x[1]-coupling_regions_data[k,1])^2 + (x[2]-coupling_regions_data[k,2])^2 + (x[3]-coupling_regions_data[k,3])^2 < coupling_regions_data[k,4]^2 )
@@ -950,4 +950,84 @@ function is_in_coupling_region(x::Vector{Float64}, coupling_region_filename::Str
     end
 
     return false
+end
+
+
+function compute_stable_direction_uncoupled_linearized(
+    backward_ode::Function,       # Pass your 3D backward system by name
+    system_name::AbstractString,
+    input_filename::String;
+    transient_time::Float64 = 600.0,
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6,
+    relative_tolerance::Float64 = 1e-4
+)
+
+    output_filename = string(input_filename[1:end-4],"__stabledirection",".tsv") 
+
+    # 1. Load the forward trajectory data
+    data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, input_filename), '\t', Float64)
+    t_forward = data[:, 1]
+    T_max = t_forward[end]
+
+    if (T_max - transient_time <= 0)
+        error("The forward trajectory is too short!")
+    end
+    
+    interps = (
+        DataInterpolations.LinearInterpolation(data[:, 2], t_forward),
+        DataInterpolations.LinearInterpolation(data[:, 3], t_forward),
+        DataInterpolations.LinearInterpolation(data[:, 4], t_forward)
+    )
+
+    p_combined = (interps = interps,)
+    
+    # Random initial vector on a 3D unit sphere
+    dx0_dir = [1.0, 1.0, 1.0]
+    dx0_dir /= sqrt(dx0_dir[1]^2 + dx0_dir[2]^2 + dx0_dir[3]^2)
+    u0 = StaticArrays.SVector{4, Float64}(dx0_dir[1], dx0_dir[2], dx0_dir[3], 0.0)
+
+    tspan_transient = (T_max, T_max - transient_time)
+
+    prob_transient = DifferentialEquations.ODEProblem(
+        roessler_backward_linear, u0, tspan_transient, p_combined
+    )
+    
+    sol_transient = DifferentialEquations.solve(
+        prob_transient, 
+        DifferentialEquations.Tsit5(), 
+        callback = backwardlinearizedODE_callback, 
+        dtmax = max_integration_timestep,
+        abstol = absolute_tolerance,
+        reltol = relative_tolerance,
+        save_everystep = false
+    )
+
+    u_transient = sol_transient.u[end]
+    u0_sampling = StaticArrays.SVector{4, Float64}(u_transient[1], u_transient[2], u_transient[3], 0.0)
+    
+    t_start_sampling = T_max - transient_time
+    tspan_sampling = (t_start_sampling, 0.0)
+
+    saveat_vec = reverse(t_forward[t_forward .<= t_start_sampling])
+    
+    prob_sampling = DifferentialEquations.ODEProblem(
+        roessler_backward_linear, u0_sampling, tspan_sampling, p_combined
+    )
+    
+    sol_sampling = DifferentialEquations.solve(
+        prob_sampling, 
+        DifferentialEquations.Tsit5(),
+        callback = backwardlinearizedODE_callback, 
+        saveat = saveat_vec,
+        dtmax = max_integration_timestep,
+        abstol = absolute_tolerance,
+        reltol = relative_tolerance
+    )
+
+    t_output = reverse(sol_sampling.t)
+    dx_matrix = reduce(hcat, sol_sampling.u)'
+    dx_output = dx_matrix[end:-1:1, :]
+
+    DelimitedFiles.writedlm(DrWatson.datadir(system_name, output_filename), hcat(t_output, dx_output), '\t')
 end
