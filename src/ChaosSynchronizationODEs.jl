@@ -337,3 +337,45 @@ end
 init_normalize = (c,u,t,integrator) -> normalizecallback_affect!(integrator) # Initialize state to be normalized
 linearizedODE_normalizecallback = DifferentialEquations.DiscreteCallback((u,t,integrator) -> true, normalizecallback_affect!, initialize=init_normalize, save_positions=(false,false))
 
+
+
+
+
+
+
+
+
+# backward ODEs to compute stable directions
+# forward trajectory is passed as interpolated data in the parameters
+
+function roessler_backward_linear(u, p_combined, t)
+    interps = p_combined.interps
+
+    x1 = interps[1](t)
+    x2 = interps[2](t)
+    x3 = interps[3](t)
+    
+    ddx1 = - u[2] - u[3]
+    ddx2 = u[1] + 0.2*u[2]
+    ddx3 = u[3]*(x1 - 5.7) + x3*u[1]
+    
+    ddx4 = - u[1]*u[3] + 0.2*u[2]^2 + u[3]^2 * (x1 - 5.7) + x3*u[1]*u[3]
+    
+    ddx1 -= u[1] * ddx4
+    ddx2 -= u[2] * ddx4
+    ddx3 -= u[3] * ddx4
+    
+    return StaticArrays.SVector{4, Float64}(ddx1, ddx2, ddx3, ddx4)
+end
+
+function backward_normalize_affect!(integrator)
+    u = integrator.u 
+    delta = sqrt(u[1]^2 + u[2]^2 + u[3]^2)
+    v1 = u[1] / delta
+    v2 = u[2] / delta
+    v3 = u[3] / delta
+    integrator.u = StaticArrays.SVector{4, Float64}(v1, v2, v3, u[4])
+end
+
+init_backward_normalize = (c,u,t,integrator) -> backward_normalize_affect!(integrator) # Initialize state to be normalized
+backwardlinearizedODE_callback = DifferentialEquations.DiscreteCallback((u, t, integrator) -> true, backward_normalize_affect!, initialize=init_backward_normalize, save_positions=(false, false))
