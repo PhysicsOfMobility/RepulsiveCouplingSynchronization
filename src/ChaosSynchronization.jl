@@ -14,7 +14,8 @@ export
     chenODE_coupled_linear,
     chuaODE,
     chuaODE_coupled,
-    chuaODE_coupled_linear
+    chuaODE_coupled_linear,
+    roessler_backward_linear
 
 
 include("ChaosSynchronizationHelper.jl")
@@ -36,7 +37,11 @@ export
     simple_test__compute_maximum_lyapunov_exponent_linearized,
     simple_test__scan_maximum_lyapunov_exponent,
     compute_coupling_fraction,
-    is_in_coupling_region
+    is_in_coupling_region,
+    compute_stable_direction_uncoupled_linearized
+
+
+include("ChaosSynchronizationMakieStyle.jl")
 
 include("ChaosSynchronizationPlot.jl")
 export 
