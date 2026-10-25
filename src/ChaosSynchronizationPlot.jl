@@ -350,7 +350,7 @@ function couplingregion_lyap_effect_plot(system_name::AbstractString, coupling_r
         colormap = :berlin,
         colorscale = Makie.Symlog10(0.001),
         colorrange = (-0.25, 0.25),
-        markersize = 30 * 2.5e-4 ./ couplingregion_data[:,11],      # Set a clear marker size
+        markersize = 5,      # Set a clear marker size
         strokewidth = 0.0,     
         alpha = 1.0,
         transparency=true

@@ -1,0 +1,80 @@
+using DrWatson
+@quickactivate :ChaosSynchronization
+
+import StaticArrays
+import Printf
+import DelimitedFiles
+
+coupling_strength = StaticArrays.@SVector[-1.0, 0.0, 0.0]
+#coupling_strength_sim = StaticArrays.@SVector[10.0, 0.0, 0.0]
+
+number_of_coupling_regions_to_plot = 15
+
+coupling_regions_filename = "couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled.tsv"
+
+optimal_coupling_regions_filename = string(coupling_regions_filename[1:end-4], "__optimal_coupling__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),"__disc.tsv")
+
+
+simulate_nonlinear_optimal_coupling_trajectory_discontinuity_handling(
+    roesslerODE_coupled_discontinuity_detection,
+    "roessler",
+    optimal_coupling_regions_filename,
+    coupling_strength;
+    #coupling_strength_sim;
+    number_of_coupling_regions = number_of_coupling_regions_to_plot,
+    sampling = true,
+    sampling_timestep = 1.0,
+    #sampling_timestep = 0.05,
+    #transient_time = 4500.0,
+    simulation_time = 1.0e6,
+    delta_x0 = StaticArrays.SVector{3,Float64}(0.0,0.2,0.2), 
+    #simulation_time = 1000.0,
+    output_suffix = "plot"
+)
+
+simulate_linearized_optimal_coupling_trajectory_discontinuity_handling(
+    roesslerODE_coupled_linear_discontinuity_detection,
+    "roessler",
+    optimal_coupling_regions_filename,
+    coupling_strength;
+    #coupling_strength_sim;
+    number_of_coupling_regions = number_of_coupling_regions_to_plot,
+    sampling = true,
+    #transient_time = 4560.0,
+    simulation_time = 10000.0,
+    sampling_timestep = 0.01,
+    output_suffix = "plot",
+)
+
+simulate_linearized_optimal_coupling_trajectory_discontinuity_handling(
+    roesslerODE_coupled_linear_discontinuity_detection,
+    "roessler",
+    optimal_coupling_regions_filename,
+    coupling_strength;
+    #coupling_strength_sim;
+    number_of_coupling_regions = number_of_coupling_regions_to_plot,
+    sampling = true,
+    #transient_time = 4560.0,
+    sampling_timestep = 0.1,
+    output_suffix = "sample"
+)
+
+
+#optimal_coupling_data = DelimitedFiles.readdlm(DrWatson.datadir("roessler", optimal_coupling_regions_filename), '\t', Float64)
+#
+#number_of_optimal_coupling_points = number_of_coupling_regions_to_plot
+#optimal_coupling_points = [StaticArrays.SVector{3, Float64}(optimal_coupling_data[i, 1:3]) for i in 1:number_of_optimal_coupling_points]
+#optimal_coupling_radii = optimal_coupling_data[:, 4]
+#
+#optimal_coupling_parameters = SystemParameters(coupling_strength, number_of_optimal_coupling_points, optimal_coupling_points, optimal_coupling_radii)
+#
+#coupling_strength_range = range(-3.0, 7.0, step=0.01)
+#
+#scan_maximum_lyapunov_exponent_discontinuity_handling(
+#    roesslerODE_coupled_linear_discontinuity_detection, 
+#    "roessler", 
+#    optimal_coupling_parameters; 
+#    coupling_strength_range = [coupling_strength_range, zeros(size(coupling_strength_range,1)), zeros(size(coupling_strength_range,1))],
+#    output_filename_ovewrite = "lyap_scan__couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled__optimal_coupling__alpha_1.00_0.00_0.00_ncr_15__disc.tsv",
+#    show_progress = true
+#    )

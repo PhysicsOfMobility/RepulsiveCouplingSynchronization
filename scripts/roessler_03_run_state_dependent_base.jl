@@ -4,11 +4,22 @@ using DrWatson
 import StaticArrays
 import Printf
 
-coupling_strength = StaticArrays.@SVector[1.0, 0.0, 0.0]
+coupling_strength = StaticArrays.@SVector[5.0, 0.0, 0.0]
 
 coupling_region_filename_list = 
 [
-    "couplingregions_equidist__dist_0.50__cfrac_0.01.tsv", 
+    #"couplingregions_equidist__dist_0.25__cfrac_0.01.tsv", 
+    #"couplingregions_equidist__dist_0.25__cfrac_0.02.tsv", 
+    #"couplingregions_equidist__dist_0.25__cfrac_0.05.tsv", 
+#    "couplingregions_equidist__dist_0.50__cfrac_0.01.tsv", 
+    "couplingregions_equidist__dist_0.50__cfrac_0.02.tsv", 
+#    "couplingregions_equidist__dist_0.50__cfrac_0.05.tsv", 
+    #"couplingregions_uniform__frac_0.001__cfrac_0.01.tsv",
+    #"couplingregions_uniform__frac_0.001__cfrac_0.02.tsv",
+    #"couplingregions_uniform__frac_0.001__cfrac_0.05.tsv",
+#    "couplingregions_uniform__frac_0.002__cfrac_0.01.tsv",
+#    "couplingregions_uniform__frac_0.002__cfrac_0.02.tsv",
+#    "couplingregions_uniform__frac_0.002__cfrac_0.05.tsv"
 ]
 
 for coupling_region_filename in coupling_region_filename_list
@@ -21,11 +32,11 @@ for coupling_region_filename in coupling_region_filename_list
     )
 end
 
-#for coupling_region_filename in coupling_region_filename_list
-#    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
-#    couplingregion_lyap_effect_plot(
-#        "roessler", 
-#        data_filename
-#    )
-#end
+for coupling_region_filename in coupling_region_filename_list
+    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
+    couplingregion_lyap_effect_plot(
+        "roessler", 
+        data_filename
+    )
+end
 

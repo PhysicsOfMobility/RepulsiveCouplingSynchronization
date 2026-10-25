@@ -362,7 +362,7 @@ axis_panel_c =
 Axis(
     panel_c[1, 1],
     xlabel = L"\text{coupling strength}\;\alpha",
-    ylabel = L"\text{max. Lyap. exp.}\;\;\lambda",
+    ylabel = L"\text{max. trans. Lyap. exp.}\;\;\lambda",
     limits = (0,5,-0.6,0.1),
     xticks = [0,1,2,3,4,5],
     xtickformat = values -> [L"0",L"1",L"2",L"3",L"4",L"5"],
@@ -676,7 +676,7 @@ Axis(
 
 coupling_regions_data = DelimitedFiles.readdlm(DrWatson.datadir("roessler","couplingregions_equidist__dist_0.50__cfrac_0.01.tsv"), '\t', Float64)
 for k in 1:size(coupling_regions_data,1)
-#for k in 1:50
+#for k in 1:50 
 
     systemparameters_temp = SystemParameters(
         StaticArrays.@SVector[1.0, 0.0, 0.0], 

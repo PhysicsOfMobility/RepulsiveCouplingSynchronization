@@ -6,6 +6,7 @@ export
     roesslerODE, 
     roesslerODE_coupled, 
     roesslerODE_coupled_linear,
+    roesslerODE_coupled_linear_focal_test,
     lorenzODE,
     lorenzODE_coupled,
     lorenzODE_coupled_linear,
@@ -15,7 +16,18 @@ export
     chuaODE,
     chuaODE_coupled,
     chuaODE_coupled_linear,
-    roessler_backward_linear
+    roessler_backward_linear,
+    SystemParameters_discontinuity_detection,
+    roesslerODE_coupled_discontinuity_detection,
+    roesslerODE_coupled_linear_discontinuity_detection,
+    coupling_condition,
+    #coupling_affect!,
+    #coupling_init,
+    coupling_callback,
+    nonlinear_coupling_condition,
+    #nonlinear_coupling_init,
+    nonlinear_coupling_callback
+    
 
 
 include("ChaosSynchronizationHelper.jl")
@@ -26,6 +38,7 @@ export
     generate_attractortiling_uniform, 
     generate_attractortiling_equidistant, 
     generate_couplingregions, 
+    generate_couplingregions_reshuffled, 
     simulate_nonlinear_trajectory,
     simulate_linearized_trajectory,
     compute_maximum_lyapunov_exponent_linearized,
@@ -38,7 +51,15 @@ export
     simple_test__scan_maximum_lyapunov_exponent,
     compute_coupling_fraction,
     is_in_coupling_region,
-    compute_stable_direction_uncoupled_linearized
+    compute_stable_direction_uncoupled_linearized,
+    simulate_synch_time_distribution,
+    compute_maximum_lyapunov_exponent_linearized_discontinuity_handling,
+    find_next_optimal_coupling_region_discontinuity_handling,
+    simulate_nonlinear_trajectory_discontinuity_handling,
+    simulate_linearized_trajectory_discontinuity_handling,
+    simulate_nonlinear_optimal_coupling_trajectory_discontinuity_handling,
+    simulate_linearized_optimal_coupling_trajectory_discontinuity_handling,
+    scan_maximum_lyapunov_exponent_discontinuity_handling
 
 
 include("ChaosSynchronizationMakieStyle.jl")
@@ -58,6 +79,7 @@ export
 
 include("ChaosSynchronizationOptimization.jl")
 export 
-    optimize_coupling_regions
+    optimize_coupling_regions,
+    optimize_coupling_regions_discontinuity_handling
 
 end

@@ -88,6 +88,52 @@ end
 
 
 
+
+
+
+function roesslerODE_coupled_linear_focal_test(x::StaticArrays.SVector{7, Float64}, p::SystemParameters, t::Float64)    
+    #nonlinear master oscillator
+    dx1 = - x[2] - x[3]
+    dx2 = x[1] + 0.2*x[2]
+    dx3 = 0.2 + x[3]*(x[1] - 5.7)
+
+    #linearized slave-oscillator
+    dx4 = - x[5] - x[6] 
+    dx5 = x[4] + 0.2*x[5]
+    dx6 = x[6]*(x[1] - 5.7) + x[3]*x[4]
+    # dx7 is (v ⋅ dv/dt)
+    dx7 = - x[4]*x[6] + 0.2*x[5]^2 + x[6]^2 * (x[1] - 5.7) + x[3]*x[4]*x[6]
+
+    # coupling
+    for k::Int in 1:p.numberofcouplingregions
+        if (x[3] > 0.1)
+            if( abs(x[1]-p.couplingpoints[k][1]) < p.couplingradii[k] && abs(x[2]-p.couplingpoints[k][2]) < p.couplingradii[k] && abs(x[3]-p.couplingpoints[k][3]) < p.couplingradii[k] )
+                if( (x[1]-p.couplingpoints[k][1])^2 + (x[2]-p.couplingpoints[k][2])^2 + (x[3]-p.couplingpoints[k][3])^2 < p.couplingradii[k]^2 )
+                    dx4 -= p.couplingstrength[1]*x[4]
+                    dx5 -= p.couplingstrength[2]*x[5]
+                    dx6 -= p.couplingstrength[3]*x[6]
+                    dx7 -= p.couplingstrength[1]*x[4]^2 + p.couplingstrength[2]*x[5]^2 + p.couplingstrength[3]*x[6]^2
+                    break
+                end
+            end
+        end
+    end
+    
+    # subtract radial component
+    dx4 = dx4 - x[4] * dx7
+    dx5 = dx5 - x[5] * dx7
+    dx6 = dx6 - x[6] * dx7
+
+    return StaticArrays.@SVector[dx1, dx2, dx3, dx4, dx5, dx6, dx7]
+end
+
+
+
+
+
+
+
+
 #LORENZ
 
 #a single Lorenz attractor
@@ -379,3 +425,161 @@ end
 
 init_backward_normalize = (c,u,t,integrator) -> backward_normalize_affect!(integrator) # Initialize state to be normalized
 backwardlinearizedODE_callback = DifferentialEquations.DiscreteCallback((u, t, integrator) -> true, backward_normalize_affect!, initialize=init_backward_normalize, save_positions=(false, false))
+
+
+
+
+
+
+
+#explicit discontinuity handling to demonstrate robustness
+#struct SystemParameters_discontinuity_detection{Float64}
+#    couplingstrength::StaticArrays.SVector{3, Float64}
+#    numberofcouplingregions::Int64
+#    couplingpoints::Vector{StaticArrays.SVector{3, Float64}}
+#    couplingradii::Vector{Float64}
+#end
+
+#two state-dependent master-slave-coupled Roessler attractors
+#function roesslerODE_coupled_discontinuity_detection(x::StaticArrays.SVector{6, Float64}, p::SystemParameters_discontinuity_detection, t::Float64) 
+function roesslerODE_coupled_discontinuity_detection(x::StaticArrays.SVector{6, Float64}, p::SystemParameters, t::Float64) 
+    #nonlinear master oscillator
+    dx1 = - x[2] - x[3]
+    dx2 = x[1] + 0.2*x[2]
+    dx3 = 0.2 + x[3]*(x[1] - 5.7)
+
+    #nonlinear slave-oscillator
+    dx4 = - x[5] - x[6] 
+    dx5 = x[4] + 0.2*x[5]
+    dx6 = 0.2 + x[6]*(x[4] - 5.7)
+
+    #coupling
+    #if p.is_coupled[]
+    #    dx4 -= p.couplingstrength[1]*(x[4] - x[1])
+    #    dx5 -= p.couplingstrength[2]*(x[5] - x[2])
+    #    dx6 -= p.couplingstrength[3]*(x[6] - x[3])
+    #end
+    # coupling
+        #coupling
+    for k::Int in 1:p.numberofcouplingregions
+        #if( abs(x[1]-p.couplingpoints[k][1]) < p.couplingradii[k] && abs(x[2]-p.couplingpoints[k][2]) < p.couplingradii[k] && abs(x[3]-p.couplingpoints[k][3]) < p.couplingradii[k] )
+            if( (x[1]-p.couplingpoints[k][1])^2 + (x[2]-p.couplingpoints[k][2])^2 + (x[3]-p.couplingpoints[k][3])^2 < p.couplingradii[k]^2 && (x[4]-p.couplingpoints[k][1])^2 + (x[5]-p.couplingpoints[k][2])^2 + (x[6]-p.couplingpoints[k][3])^2 < p.couplingradii[k]^2 )
+                dx4 -= p.couplingstrength[1]*(x[4] - x[1])
+                dx5 -= p.couplingstrength[2]*(x[5] - x[2])
+                dx6 -= p.couplingstrength[3]*(x[6] - x[3])
+                break
+            end
+        #end
+    end
+
+
+    return StaticArrays.@SVector[dx1, dx2, dx3, dx4, dx5, dx6]
+end
+
+#function roesslerODE_coupled_linear_discontinuity_detection(x::StaticArrays.SVector{7, Float64}, p::SystemParameters_discontinuity_detection, t::Float64)    
+function roesslerODE_coupled_linear_discontinuity_detection(x::StaticArrays.SVector{7, Float64}, p::SystemParameters, t::Float64)    
+    #nonlinear master oscillator
+    dx1 = - x[2] - x[3]
+    dx2 = x[1] + 0.2*x[2]
+    dx3 = 0.2 + x[3]*(x[1] - 5.7)
+
+    #linearized slave-oscillator
+    dx4 = - x[5] - x[6] 
+    dx5 = x[4] + 0.2*x[5]
+    dx6 = x[6]*(x[1] - 5.7) + x[3]*x[4]
+    # dx7 is (v ⋅ dv/dt)
+    dx7 = - x[4]*x[6] + 0.2*x[5]^2 + x[6]^2 * (x[1] - 5.7) + x[3]*x[4]*x[6]
+
+    # coupling
+    #if p.is_coupled[]
+    #    dx4 -= p.couplingstrength[1]*x[4]
+    #    dx5 -= p.couplingstrength[2]*x[5]
+    #    dx6 -= p.couplingstrength[3]*x[6]
+    #    dx7 -= p.couplingstrength[1]*x[4]^2 + p.couplingstrength[2]*x[5]^2 + p.couplingstrength[3]*x[6]^2
+    #end
+    for k::Int in 1:p.numberofcouplingregions
+        if( abs(x[1]-p.couplingpoints[k][1]) < p.couplingradii[k] && abs(x[2]-p.couplingpoints[k][2]) < p.couplingradii[k] && abs(x[3]-p.couplingpoints[k][3]) < p.couplingradii[k] )
+            if( (x[1]-p.couplingpoints[k][1])^2 + (x[2]-p.couplingpoints[k][2])^2 + (x[3]-p.couplingpoints[k][3])^2 < p.couplingradii[k]^2 )
+                dx4 -= p.couplingstrength[1]*x[4]
+                dx5 -= p.couplingstrength[2]*x[5]
+                dx6 -= p.couplingstrength[3]*x[6]
+                dx7 -= p.couplingstrength[1]*x[4]^2 + p.couplingstrength[2]*x[5]^2 + p.couplingstrength[3]*x[6]^2
+                break
+            end
+        end
+    end
+    
+    # subtract radial component
+    dx4 = dx4 - x[4] * dx7
+    dx5 = dx5 - x[5] * dx7
+    dx6 = dx6 - x[6] * dx7
+
+    return StaticArrays.@SVector[dx1, dx2, dx3, dx4, dx5, dx6, dx7]
+end
+
+function coupling_condition(x, t, integrator)
+    p = integrator.p
+    min_val = Inf
+    for k in 1:p.numberofcouplingregions
+        dist_sq = (x[1] - p.couplingpoints[k][1])^2 + 
+                  (x[2] - p.couplingpoints[k][2])^2 + 
+                  (x[3] - p.couplingpoints[k][3])^2
+        val = dist_sq - p.couplingradii[k]^2
+        if val < min_val
+            min_val = val
+        end
+    end
+    return min_val
+end
+
+#function coupling_init(x, p::SystemParameters)
+#    for k in 1:p.numberofcouplingregions
+#        dist_sq = (x[1] - p.couplingpoints[k][1])^2 + 
+#                  (x[2] - p.couplingpoints[k][2])^2 + 
+#                  (x[3] - p.couplingpoints[k][3])^2
+#        if dist_sq < p.couplingradii[k]^2
+#            return true
+#        end
+#    end
+#    return false
+#end
+
+#coupling_callback = DifferentialEquations.ContinuousCallback(coupling_condition, coupling_affect!)
+coupling_callback = DifferentialEquations.ContinuousCallback(coupling_condition, nothing)
+
+
+function nonlinear_coupling_condition(x, t, integrator)
+    p = integrator.p
+    min_val = Inf
+    for k in 1:p.numberofcouplingregions
+        dist_sq_1 = (x[1] - p.couplingpoints[k][1])^2 + 
+                  (x[2] - p.couplingpoints[k][2])^2 + 
+                  (x[3] - p.couplingpoints[k][3])^2
+        dist_sq_2 = (x[4] - p.couplingpoints[k][1])^2 + 
+                  (x[5] - p.couplingpoints[k][2])^2 + 
+                  (x[6] - p.couplingpoints[k][3])^2
+        val = max(dist_sq_1 - p.couplingradii[k]^2, dist_sq_2 - p.couplingradii[k]^2)
+        if val < min_val
+            min_val = val
+        end
+    end
+    return min_val
+end
+
+#function nonlinear_coupling_init(x, p::SystemParameters)
+#    for k in 1:p.numberofcouplingregions
+#        dist_sq_1 = (x[1] - p.couplingpoints[k][1])^2 + 
+#                  (x[2] - p.couplingpoints[k][2])^2 + 
+#                  (x[3] - p.couplingpoints[k][3])^2
+#        dist_sq_2 = (x[4] - p.couplingpoints[k][1])^2 + 
+#                  (x[5] - p.couplingpoints[k][2])^2 + 
+#                  (x[6] - p.couplingpoints[k][3])^2
+#        if dist_sq_1 < p.couplingradii[k]^2 && dist_sq_2 < p.couplingradii[k]^2
+#            return true
+#        end
+#    end
+#    return false
+#end
+
+#nonlinear_coupling_callback = DifferentialEquations.ContinuousCallback(nonlinear_coupling_condition, coupling_affect!)
+nonlinear_coupling_callback = DifferentialEquations.ContinuousCallback(nonlinear_coupling_condition, nothing)

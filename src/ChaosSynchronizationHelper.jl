@@ -2,9 +2,10 @@ import StaticArrays
 import DifferentialEquations 
 import DelimitedFiles 
 import DynamicalSystems
-import SimpleDiffEq
+#import SimpleDiffEq
 import Distances
 import Statistics
+import DataInterpolations
 import Random
 import Printf
 import DrWatson
@@ -89,17 +90,26 @@ end
 
 function generate_attractortiling_equidistant(
     system_name::AbstractString; 
-    min_dist_tiling_list::Vector{Float64} = [0.25, 0.5]
+    min_dist_tiling_list::Vector{Float64} = [0.25, 0.5],
+    shuffle_attractor_points = false
     )
 
     attractor_filename::String = "attractor_sample.tsv"
     attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
     N = size(attractorpoints, 1)
+    if(shuffle_attractor_points)
+        Random.seed!(0)
+        attractorpoints = attractorpoints[Random.shuffle(1:N), :]
+    end    
     
     for min_dist in min_dist_tiling_list
 
         min_dist_sq = min_dist*min_dist
         tiling_filename::String = string("attractortiling_equidist__dist_",Printf.@sprintf("%.2f",min_dist),".tsv")
+
+        if(shuffle_attractor_points)
+            tiling_filename = string(tiling_filename[1:end-4],"__reshuffled",".tsv")
+        end
 
         selected_indices = Int[]
         remaining_indices = Set([i for i in 1:N])
@@ -153,18 +163,28 @@ end
 
 function generate_attractortiling_uniform(
     system_name::AbstractString; 
-    attractor_fraction_tiling_list::Vector{Float64} = [0.001, 0.002]
+    attractor_fraction_tiling_list::Vector{Float64} = [0.001, 0.002],
+    shuffle_attractor_points = false
     )
 
     attractor_filename::String = "attractor_sample.tsv"
     attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+
     N = size(attractorpoints, 1)
+    if(shuffle_attractor_points)
+        Random.seed!(0)
+        attractorpoints = attractorpoints[Random.shuffle(1:N), :]
+    end    
     
     for attractor_fraction_tiling in attractor_fraction_tiling_list
         attractor_fraction_index = ceil(Int, N * attractor_fraction_tiling)
         attractor_fraction_index = clamp(attractor_fraction_index, 1, N)
 
         tiling_filename::String = string("attractortiling_uniform__frac_",Printf.@sprintf("%.3f",attractor_fraction_tiling),".tsv")
+
+        if(shuffle_attractor_points)
+            tiling_filename = string(tiling_filename[1:end-4],"__reshuffled",".tsv")
+        end
 
         selected_indices = Int64[]
         remaining_indices = Set([i for i in 1:N])
@@ -293,6 +313,74 @@ function generate_couplingregions(
 
         for k in 1:size(attractor_fraction_coupling_list,1)
             couplingregion_filename::String = string("couplingregions_uniform__frac_",Printf.@sprintf("%.3f",attractor_fraction_tiling),"__cfrac_",Printf.@sprintf("%.2f",attractor_fraction_coupling_list[k]),".tsv")
+            DelimitedFiles.writedlm(DrWatson.datadir(system_name, couplingregion_filename), hcat(couplingpoints,sqrt.(couplingRadius[:,k]),couplingRadius[:,k]), '\t')
+        end
+    end
+
+end
+
+function generate_couplingregions_reshuffled(
+    system_name::AbstractString; 
+    attractor_fraction_coupling_list::Vector{Float64} = [0.01, 0.02, 0.05], 
+    min_dist_tiling_list::Vector{Float64} = [0.25, 0.5], 
+    attractor_fraction_tiling_list::Vector{Float64} = [0.001, 0.002]
+    )
+
+    attractor_filename::String = string("attractor_sample.tsv")
+    attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+    N = size(attractorpoints, 1)
+    
+    for min_dist_tiling in min_dist_tiling_list
+        tiling_filename::String = string("attractortiling_equidist__dist_",Printf.@sprintf("%.2f",min_dist_tiling),"__reshuffled.tsv")
+        couplingpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,tiling_filename), '\t', Float64)
+
+        ncoupling = size(couplingpoints, 1)
+        nattractor = size(attractorpoints, 1)
+        couplingRadius = zeros(ncoupling,size(attractor_fraction_coupling_list,1))
+        couplingIndices = [ clamp(ceil(Int, nattractor * attractor_fraction_coupling_list[k]),1,nattractor) for k in 1:size(attractor_fraction_coupling_list,1)]
+
+        Threads.@threads for i in 1:ncoupling
+            distances_sq = Vector{Float64}(undef, nattractor)
+
+            for j in 1:nattractor
+                distances_sq[j] = Distances.SqEuclidean()(couplingpoints[i, :], attractorpoints[j, :])
+            end
+
+            for k in 1:size(attractor_fraction_coupling_list,1)
+                couplingRadius[i,k] = partialsort(distances_sq, couplingIndices[k])
+            end
+        end
+
+        for k in 1:size(attractor_fraction_coupling_list,1)
+            couplingregion_filename::String = string("couplingregions_equidist__dist_",Printf.@sprintf("%.2f",min_dist_tiling),"__cfrac_",Printf.@sprintf("%.2f",attractor_fraction_coupling_list[k]),"__reshuffled.tsv")
+            DelimitedFiles.writedlm(DrWatson.datadir(system_name,couplingregion_filename), hcat(couplingpoints,sqrt.(couplingRadius[:,k]),couplingRadius[:,k]), '\t')
+        end
+    end
+
+
+    for attractor_fraction_tiling in attractor_fraction_tiling_list
+        tiling_filename = string("attractortiling_uniform__frac_",Printf.@sprintf("%.3f",attractor_fraction_tiling),"__reshuffled.tsv")
+        couplingpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,tiling_filename), '\t', Float64)
+
+        ncoupling = size(couplingpoints, 1)
+        nattractor = size(attractorpoints, 1)
+        couplingRadius = zeros(ncoupling,size(attractor_fraction_coupling_list,1))
+        couplingIndices = [ clamp(ceil(Int, nattractor * attractor_fraction_coupling_list[k]),1,nattractor) for k in 1:size(attractor_fraction_coupling_list,1)]
+
+        Threads.@threads for i in 1:ncoupling
+            distances_sq = Vector{Float64}(undef, nattractor)
+
+            for j in 1:nattractor
+                distances_sq[j] = Distances.SqEuclidean()(couplingpoints[i, :], attractorpoints[j, :])
+            end
+
+            for k in 1:size(attractor_fraction_coupling_list,1)
+                couplingRadius[i,k] = partialsort(distances_sq, couplingIndices[k])
+            end
+        end
+
+        for k in 1:size(attractor_fraction_coupling_list,1)
+            couplingregion_filename::String = string("couplingregions_uniform__frac_",Printf.@sprintf("%.3f",attractor_fraction_tiling),"__cfrac_",Printf.@sprintf("%.2f",attractor_fraction_coupling_list[k]),"__reshuffled.tsv")
             DelimitedFiles.writedlm(DrWatson.datadir(system_name, couplingregion_filename), hcat(couplingpoints,sqrt.(couplingRadius[:,k]),couplingRadius[:,k]), '\t')
         end
     end
@@ -954,7 +1042,7 @@ end
 
 
 function compute_stable_direction_uncoupled_linearized(
-    backward_ode::Function,       # Pass your 3D backward system by name
+    backward_ode::Function, 
     system_name::AbstractString,
     input_filename::String;
     transient_time::Float64 = 600.0,
@@ -965,7 +1053,7 @@ function compute_stable_direction_uncoupled_linearized(
 
     output_filename = string(input_filename[1:end-4],"__stabledirection",".tsv") 
 
-    # 1. Load the forward trajectory data
+    # Load the forward trajectory data
     data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, input_filename), '\t', Float64)
     t_forward = data[:, 1]
     T_max = t_forward[end]
@@ -1030,4 +1118,587 @@ function compute_stable_direction_uncoupled_linearized(
     dx_output = dx_matrix[end:-1:1, :]
 
     DelimitedFiles.writedlm(DrWatson.datadir(system_name, output_filename), hcat(t_output, dx_output), '\t')
+end
+
+
+
+function simulate_synch_time_distribution(
+    ode::Function, 
+    system_name::AbstractString, 
+    optimal_coupling_regions_filename::String, 
+    coupling_strength::StaticArrays.SVector{3, Float64};
+    number_of_initial_condition_samples::Int64 = 2000, 
+    number_of_deviation_samples::Int64 = 10, 
+    number_of_coupling_regions::Int64 = 15, 
+    simulation_time_max::Float64 = 10000000.0, 
+    simulation_time_bins::Int64 = 1000, 
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    )   
+    
+    optimal_coupling_data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, optimal_coupling_regions_filename), '\t', Float64)
+
+    number_of_optimal_coupling_points = min(size(optimal_coupling_data,1), number_of_coupling_regions)
+    optimal_coupling_points = [StaticArrays.SVector{3, Float64}(optimal_coupling_data[i, 1:3]) for i in 1:number_of_optimal_coupling_points]
+    optimal_coupling_radii = optimal_coupling_data[:, 4]
+
+    optimal_coupling_parameters = SystemParameters(coupling_strength, number_of_optimal_coupling_points, optimal_coupling_points, optimal_coupling_radii)
+
+
+    attractor_filename::String = string("attractor_sample.tsv")
+    attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+    Random.seed!(0)
+    attractorpoints = attractorpoints[Random.shuffle(1:size(attractorpoints, 1)), :]
+
+    simulation_time = simulation_time_max / simulation_time_bins
+
+    synch_time_bins::Vector{Float64} = [[k*simulation_time for k in 1:simulation_time_bins]; Inf]
+    synch_time_hist::Vector{Int64} = zeros(Int64, simulation_time_bins + 1)
+
+    hist_lock = ReentrantLock()
+
+    @time ProgressMeter.@showprogress Threads.@threads for init_index in 1:number_of_initial_condition_samples
+        for dev_index in 1:number_of_deviation_samples
+            
+            synch_time_bin::Int64 = 1
+            
+            x0_sample = attractorpoints[init_index,:]
+            x0_dev = attractorpoints[init_index + dev_index,:]
+            x0 = StaticArrays.SVector{6,Float64}(x0_sample[1], x0_sample[2], x0_sample[3], x0_sample[1]+x0_dev[1], x0_sample[2]+x0_dev[2], x0_sample[3]+x0_dev[3])
+
+            ds = 
+            DynamicalSystems.ContinuousDynamicalSystem(
+                ode, 
+                x0,
+                optimal_coupling_parameters,
+                diffeq = (
+                    save_everystep = false, 
+                    save_start = false,
+                    dtmax = max_integration_timestep,
+                    abstol = absolute_tolerance,
+                    reltol = relative_tolerance,
+                    )
+                )
+
+            while(synch_time_bin < simulation_time_bins + 1)
+
+                DynamicalSystems.step!(ds, simulation_time, true)
+                current_state = DynamicalSystems.current_state(ds)
+
+                if( (current_state[4] - current_state[1])^2 + (current_state[5] - current_state[2])^2 + (current_state[6] - current_state[3])^2 < 1e-24 ) #synch error < 10^-12
+                    lock(hist_lock) do
+                        synch_time_hist[synch_time_bin] += 1
+                    end
+                    break
+                else
+                    synch_time_bin += 1
+                end
+
+            end
+
+            #no synchronization during simulation time
+            if(synch_time_bin == simulation_time_bins + 1)
+                lock(hist_lock) do
+                    synch_time_hist[simulation_time_bins + 1] += 1
+                end
+            end
+
+        end
+    end
+
+    output_filename = string(optimal_coupling_regions_filename[1:end-4],"__synchtime",".tsv") 
+    DelimitedFiles.writedlm(DrWatson.datadir(system_name, output_filename), hcat(synch_time_bins, synch_time_hist), '\t')
+end
+
+
+
+
+
+
+
+
+
+
+
+
+function compute_maximum_lyapunov_exponent_linearized_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    p::SystemParameters; 
+    x0::StaticArrays.SVector{7,Float64} = StaticArrays.SVector{7,Float64}(0.0,0.0,0.0,0.5,0.5,0.714,0.0), 
+    simulation_time::Float64 = 100000.0, 
+    transient_time::Float64 = 1000.0, 
+    number_of_lyap_samples::Int64 = 10,
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4
+    )   
+
+    #coupling_flag = coupling_init(x0, p)
+    #p_discontinuity_detection = SystemParameters_discontinuity_detection(p.couplingstrength, Ref(coupling_flag), p.numberofcouplingregions, p.couplingpoints, p.couplingradii)
+
+    ds = 
+        DynamicalSystems.ContinuousDynamicalSystem(
+            ode, 
+            x0,
+            #p_discontinuity_detection,
+            p,
+            diffeq = (
+                callback = DifferentialEquations.CallbackSet(linearizedODE_normalizecallback, coupling_callback), 
+                save_everystep = false, 
+                save_start = false,
+                dtmax = max_integration_timestep,
+                abstol = absolute_tolerance,
+                reltol = relative_tolerance
+            )
+        )
+
+    #p_discontinuity_detection.is_coupled[] = coupling_init(DynamicalSystems.current_state(ds), p)
+    DynamicalSystems.step!(ds, transient_time, true)
+
+    computed_lyap_exponents = StaticArrays.MVector{number_of_lyap_samples, Float64}(undef)
+
+    for k in 1:number_of_lyap_samples 
+        x_transient = DynamicalSystems.current_state(ds)
+        
+        x0_reinit = StaticArrays.setindex(x_transient, 0.0, 7) # Use setindex
+        DynamicalSystems.reinit!(ds, x0_reinit, t0 = 0.0)
+
+        #p_discontinuity_detection.is_coupled[] = coupling_init(DynamicalSystems.current_state(ds), p)
+        DynamicalSystems.step!(ds, simulation_time)
+
+        computed_lyap_exponents[k] = DynamicalSystems.current_state(ds)[7]/DynamicalSystems.current_time(ds)
+    end
+
+    #print("Estimated Lyapunov exponent: ", Statistics.mean(computed_lyap_exponents), " +/- ", Statistics.std(computed_lyap_exponents)/sqrt(number_of_lyap_samples))
+    return (Statistics.mean(computed_lyap_exponents), Statistics.std(computed_lyap_exponents), Statistics.std(computed_lyap_exponents)/sqrt(number_of_lyap_samples))
+
+end
+
+
+function find_next_optimal_coupling_region_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    p::SystemParameters, 
+    coupling_region_filename::String; 
+    number_of_coupling_region_samples::Int64 = -1, 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{7,Float64} = StaticArrays.SVector{7,Float64}(0.0,0.0,0.0,0.5,0.5,0.714,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(1.0, 1.0, 1.0), 
+    simulation_time::Float64 = 100000.0, 
+    transient_time::Float64 = 1000.0, 
+    number_of_lyap_samples::Int64 = 10,
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    show_progress::Bool = false
+    )   
+
+    couplingregion_data::Matrix{Float64} = Matrix{Float64}(undef, 0, 0)
+
+    couplingregion_data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, coupling_region_filename), '\t', Float64)
+
+    number_of_coupling_regions = number_of_coupling_region_samples
+    if number_of_coupling_region_samples  == -1 || number_of_coupling_region_samples > size(couplingregion_data,1)
+        number_of_coupling_regions = size(couplingregion_data,1)
+    end
+
+    x0_sample = (0.0,0.0,0.0)
+
+    if initial_state_index > 0
+        attractor_filename::String = "attractor_sample.tsv"
+        attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+        x0_sample = attractorpoints[initial_state_index,:]
+    else
+        x0_sample = fixed_x0
+    end
+
+    delta_x0_norm = sqrt( delta_x0[1]*delta_x0[1] + delta_x0[2]*delta_x0[2] + delta_x0[3]*delta_x0[3] )
+    x0 = StaticArrays.SVector{7,Float64}(x0_sample[1], x0_sample[2], x0_sample[3], delta_x0[1]/delta_x0_norm, delta_x0[2]/delta_x0_norm, delta_x0[3]/delta_x0_norm, 0.0)   
+
+    couplingregion_lyap_estimates::Matrix{Float64} = Matrix{Float64}(undef, number_of_coupling_regions, 8)
+    
+    if(show_progress)
+        @time ProgressMeter.@showprogress Threads.@threads for k in 1:number_of_coupling_regions
+            test_region = StaticArrays.SVector{3, Float64}(couplingregion_data[k,1:3])
+            test_params = SystemParameters(p.couplingstrength, p.numberofcouplingregions + 1, vcat(p.couplingpoints,[test_region]), vcat(p.couplingradii,[couplingregion_data[k,4]]))
+            mean, std, ste = compute_maximum_lyapunov_exponent_linearized_discontinuity_handling(
+                ode, system_name, 
+                test_params; 
+                x0 = x0, 
+                simulation_time = simulation_time, 
+                transient_time = transient_time, 
+                number_of_lyap_samples = number_of_lyap_samples,
+                max_integration_timestep = max_integration_timestep, 
+                relative_tolerance = relative_tolerance,
+                absolute_tolerance = absolute_tolerance
+                )
+
+            couplingregion_lyap_estimates[k,:] = vcat(couplingregion_data[k,:], [mean, std, ste])
+            if couplingregion_data[k,1:3] in p.couplingpoints
+                couplingregion_lyap_estimates[k,6] = Inf
+            end
+        end
+    else
+        Threads.@threads for k in 1:number_of_coupling_regions
+            test_region = StaticArrays.SVector{3, Float64}(couplingregion_data[k,1:3])
+            test_params = SystemParameters(p.couplingstrength, p.numberofcouplingregions + 1, vcat(p.couplingpoints,[test_region]), vcat(p.couplingradii,[couplingregion_data[k,4]]))
+            mean, std, ste = compute_maximum_lyapunov_exponent_linearized_discontinuity_handling(
+                ode, system_name, 
+                test_params; 
+                x0 = x0, 
+                simulation_time = simulation_time, 
+                transient_time = transient_time, 
+                number_of_lyap_samples = number_of_lyap_samples,
+                max_integration_timestep = max_integration_timestep, 
+                relative_tolerance = relative_tolerance,
+                absolute_tolerance = absolute_tolerance
+                )
+
+            couplingregion_lyap_estimates[k,:] = vcat(couplingregion_data[k,:], [mean, std, ste])
+            if couplingregion_data[k,1:3] in p.couplingpoints
+                couplingregion_lyap_estimates[k,6] = Inf
+            end
+        end
+    end
+
+    best_coupling_region_index = argmin(couplingregion_lyap_estimates[:,6])
+    best_coupling_region = couplingregion_lyap_estimates[best_coupling_region_index,:]
+
+    return best_coupling_region
+end
+
+
+
+function simulate_nonlinear_trajectory_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    p::SystemParameters; 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.0,0.0,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.1,0.1,0.1), 
+    simulation_time::Float64 = 2000.0, 
+    transient_time::Float64 = 0.0, 
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    #arguments for sampling and saving the trajectory
+    sampling::Bool = false, 
+    sampling_timestep::Float64 = 0.01, 
+    output_filename::String = "nonlinear_trajectory.tsv"
+    )   
+
+    #set initial condition as first point from attractor sample
+    x0_sample = (0.0,0.0,0.0)
+
+    if initial_state_index > 0
+        attractor_filename::String = string("attractor_sample.tsv")
+        attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+        x0_sample = attractorpoints[initial_state_index,:]
+    else
+        x0_sample = fixed_x0
+    end
+
+    x0 = StaticArrays.SVector{6,Float64}(x0_sample[1], x0_sample[2], x0_sample[3], x0_sample[1]+delta_x0[1], x0_sample[2]+delta_x0[2], x0_sample[3]+delta_x0[3])
+
+    #coupling_flag = nonlinear_coupling_init(x0, p)
+    #p_discontinuity_detection = SystemParameters_discontinuity_detection(p.couplingstrength, Ref(coupling_flag), p.numberofcouplingregions, p.couplingpoints, p.couplingradii)
+
+    ds = 
+        DynamicalSystems.ContinuousDynamicalSystem(
+            ode, 
+            x0,
+            #p_discontinuity_detection,
+            p,
+            diffeq = (
+                callback = nonlinear_coupling_callback,
+                save_everystep = false, 
+                save_start = false,
+                dtmax = max_integration_timestep,
+                abstol = absolute_tolerance,
+                reltol = relative_tolerance,
+            )
+        )
+
+    #p_discontinuity_detection.is_coupled[] = nonlinear_coupling_init(DynamicalSystems.current_state(ds), p)
+    DynamicalSystems.step!(ds, transient_time, true)
+    x0 = DynamicalSystems.current_state(ds)
+
+    DynamicalSystems.reinit!(ds, x0, t0 = 0.0)
+    #p_discontinuity_detection.is_coupled[] = nonlinear_coupling_init(DynamicalSystems.current_state(ds), p)
+
+    if sampling
+        u, t = DynamicalSystems.trajectory(ds, simulation_time; Δt = sampling_timestep)
+        DelimitedFiles.writedlm(DrWatson.datadir(system_name, output_filename), hcat(t,u), '\t')
+    else
+        DynamicalSystems.step!(ds, simulation_time, true)
+    end
+
+    return (DynamicalSystems.current_time(ds), DynamicalSystems.current_state(ds))
+
+end
+
+function simulate_linearized_trajectory_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    p::SystemParameters; 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.0,0.0,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(1.0,1.0,1.0), 
+    simulation_time::Float64 = 2000.0, 
+    transient_time::Float64 = 600.0,  #2500.0
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    #arguments for sampling and saving the trajectory
+    sampling::Bool = false, 
+    sampling_timestep::Float64 = 0.01, 
+    output_filename::String = "linearized_system.tsv"
+    )   
+
+    #set initial condition as first point from attractor sample
+    x0_sample = (0.0,0.0,0.0)
+
+    if initial_state_index > 0
+        attractor_filename::String = "attractor_sample.tsv"
+        attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+        x0_sample = attractorpoints[initial_state_index,:]
+    else
+        x0_sample = fixed_x0
+    end
+
+    delta_x0_norm = sqrt( delta_x0[1]*delta_x0[1] + delta_x0[2]*delta_x0[2] + delta_x0[3]*delta_x0[3] )
+
+    x0 = StaticArrays.SVector{7,Float64}(x0_sample[1], x0_sample[2], x0_sample[3], delta_x0[1]/delta_x0_norm, delta_x0[2]/delta_x0_norm, delta_x0[3]/delta_x0_norm, 0.0)   
+
+    #coupling_flag = coupling_init(x0, p)
+    #p_discontinuity_detection = SystemParameters_discontinuity_detection(p.couplingstrength, Ref(coupling_flag), p.numberofcouplingregions, p.couplingpoints, p.couplingradii)
+
+    ds = 
+        DynamicalSystems.ContinuousDynamicalSystem(
+            ode, 
+            x0,
+            #p_discontinuity_detection,
+            p,
+            diffeq = (
+                callback = DifferentialEquations.CallbackSet(linearizedODE_normalizecallback, coupling_callback),
+                save_everystep = false, 
+                save_start = false,
+                dtmax = max_integration_timestep,
+                abstol = absolute_tolerance,
+                reltol = relative_tolerance
+            )
+        )
+
+    #p_discontinuity_detection.is_coupled[] = coupling_init(DynamicalSystems.current_state(ds), p)
+    DynamicalSystems.step!(ds, transient_time, true)
+    x_transient = DynamicalSystems.current_state(ds)
+    x0_reinit = StaticArrays.setindex(x_transient, 0.0, 7) # Use setindex
+
+    DynamicalSystems.reinit!(ds, x0_reinit, t0 = 0.0)
+    #p_discontinuity_detection.is_coupled[] = coupling_init(DynamicalSystems.current_state(ds), p)
+
+    if sampling
+        u, t = DynamicalSystems.trajectory(ds, simulation_time; Δt = sampling_timestep)
+        DelimitedFiles.writedlm(DrWatson.datadir(system_name, output_filename), hcat(t,u), '\t')
+    else
+        DynamicalSystems.step!(ds, simulation_time, true)
+    end
+
+    return (DynamicalSystems.current_time(ds), DynamicalSystems.current_state(ds))
+    
+end
+
+
+function simulate_nonlinear_optimal_coupling_trajectory_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    optimal_coupling_regions_filename::String, 
+    coupling_strength::StaticArrays.SVector{3, Float64}; 
+    number_of_coupling_regions::Int64 = 10, 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.0,0.0,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.1,0.1,0.1), 
+    simulation_time::Float64 = 2000.0, 
+    transient_time::Float64 = 0.0, 
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    #arguments for sampling and saving the trajectory 
+    sampling::Bool = false, 
+    sampling_timestep::Float64 = 0.01, 
+    output_suffix::String = ""
+    )   
+    
+    optimal_coupling_data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, optimal_coupling_regions_filename), '\t', Float64)
+
+    number_of_optimal_coupling_points = min(size(optimal_coupling_data,1), number_of_coupling_regions)
+    optimal_coupling_points = [StaticArrays.SVector{3, Float64}(optimal_coupling_data[i, 1:3]) for i in 1:number_of_optimal_coupling_points]
+    optimal_coupling_radii = optimal_coupling_data[:, 4]
+
+    optimal_coupling_parameters = SystemParameters(coupling_strength, number_of_optimal_coupling_points, optimal_coupling_points, optimal_coupling_radii)
+
+    output_filename = string("nl__",optimal_coupling_regions_filename[1:end-4],"_m_",number_of_optimal_coupling_points,"__traj_",output_suffix,".tsv")
+
+    simulate_nonlinear_trajectory_discontinuity_handling(
+        ode,
+        system_name,
+        optimal_coupling_parameters; 
+        initial_state_index = initial_state_index,
+        fixed_x0 = fixed_x0,
+        delta_x0 = delta_x0,
+        simulation_time = simulation_time,
+        transient_time = transient_time,
+        max_integration_timestep = max_integration_timestep,
+        absolute_tolerance = absolute_tolerance,
+        relative_tolerance = relative_tolerance,
+        sampling = sampling, 
+        sampling_timestep = sampling_timestep,
+        output_filename = output_filename
+        )
+end
+
+function simulate_linearized_optimal_coupling_trajectory_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    optimal_coupling_regions_filename::String, 
+    coupling_strength::StaticArrays.SVector{3, Float64}; 
+    number_of_coupling_regions::Int64 = 10, 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(0.0,0.0,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(1.0, 1.0, 1.0), 
+    simulation_time::Float64 = 2000.0, 
+    transient_time::Float64 = 2500.0, 
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    #arguments for sampling and saving the trajectory 
+    sampling::Bool = false, 
+    sampling_timestep::Float64 = 0.01, 
+    output_suffix::String = ""
+    )   
+    
+    optimal_coupling_data = DelimitedFiles.readdlm(DrWatson.datadir(system_name, optimal_coupling_regions_filename), '\t', Float64)
+
+    number_of_optimal_coupling_points = min(size(optimal_coupling_data,1), number_of_coupling_regions)
+    optimal_coupling_points = [StaticArrays.SVector{3, Float64}(optimal_coupling_data[i, 1:3]) for i in 1:number_of_optimal_coupling_points]
+    optimal_coupling_radii = optimal_coupling_data[:, 4]
+
+    optimal_coupling_parameters = SystemParameters(coupling_strength, number_of_optimal_coupling_points, optimal_coupling_points, optimal_coupling_radii)
+
+    output_filename = string("l__",optimal_coupling_regions_filename[1:end-4],"_m_",number_of_optimal_coupling_points,"__traj_",output_suffix,".tsv")
+
+    simulate_linearized_trajectory_discontinuity_handling(
+        ode,
+        system_name,
+        optimal_coupling_parameters; 
+        initial_state_index = initial_state_index,
+        fixed_x0 = fixed_x0,
+        delta_x0 = delta_x0,
+        simulation_time = simulation_time,
+        transient_time = transient_time,
+        max_integration_timestep = max_integration_timestep,
+        absolute_tolerance = absolute_tolerance,
+        relative_tolerance = relative_tolerance,
+        sampling = sampling, 
+        sampling_timestep = sampling_timestep,
+        output_filename = output_filename
+    )
+end
+
+function scan_maximum_lyapunov_exponent_discontinuity_handling(
+    ode::Function, 
+    system_name::AbstractString, 
+    p::SystemParameters; 
+    output_filename_ovewrite::String = "", 
+    coupling_strength_range::Vector{AbstractVector{Float64}} = [range(0.0, 5.0, step=0.01), zeros(501), zeros(501)], 
+    initial_state_index::Int64 = 1, 
+    fixed_x0::StaticArrays.SVector{7,Float64} = StaticArrays.SVector{7,Float64}(0.0,0.0,0.0,0.5,0.5,0.714,0.0), 
+    delta_x0::StaticArrays.SVector{3,Float64} = StaticArrays.SVector{3,Float64}(1.0, 1.0, 1.0), 
+    simulation_time::Float64 = 100000.0, 
+    transient_time::Float64 = 1000.0, 
+    number_of_lyap_samples::Int64 = 10,
+    max_integration_timestep::Float64 = 0.01, 
+    absolute_tolerance::Float64 = 1e-6, 
+    relative_tolerance::Float64 = 1e-4,
+    show_progress::Bool = false
+    )   
+
+    lyap_scan_filename::String = string("lyap_scan_discontinuity_handling.tsv")
+    if(output_filename_ovewrite != "")
+        lyap_scan_filename = output_filename_ovewrite
+    end
+
+    x0_sample = (0.0,0.0,0.0)
+
+    if initial_state_index > 0
+        attractor_filename::String = "attractor_sample.tsv"
+        attractorpoints = DelimitedFiles.readdlm(DrWatson.datadir(system_name,attractor_filename), '\t', Float64)
+        x0_sample = attractorpoints[initial_state_index,:]
+    else
+        x0_sample = fixed_x0
+    end
+
+    delta_x0_norm = sqrt( delta_x0[1]*delta_x0[1] + delta_x0[2]*delta_x0[2] + delta_x0[3]*delta_x0[3] )
+    x0 = StaticArrays.SVector{7,Float64}(x0_sample[1], x0_sample[2], x0_sample[3], delta_x0[1]/delta_x0_norm, delta_x0[2]/delta_x0_norm, delta_x0[3]/delta_x0_norm, 0.0)   
+
+    lyap_estimates::Matrix{Float64} = Matrix{Float64}(undef, size(coupling_strength_range[1],1), 6)
+
+    if(show_progress)
+        @time ProgressMeter.@showprogress Threads.@threads for k in 1:size(coupling_strength_range[1],1)
+            alpha_x = coupling_strength_range[1][k]
+            alpha_y = coupling_strength_range[2][k]
+            alpha_z = coupling_strength_range[3][k]
+
+            test_params = SystemParameters(
+                StaticArrays.@SVector[alpha_x,alpha_y,alpha_z], 
+                p.numberofcouplingregions, 
+                p.couplingpoints, 
+                p.couplingradii)
+
+            mean, std, ste = compute_maximum_lyapunov_exponent_linearized_discontinuity_handling(
+                ode, system_name, 
+                test_params; 
+                x0 = x0, 
+                simulation_time = simulation_time, 
+                transient_time = transient_time, 
+                number_of_lyap_samples = number_of_lyap_samples,
+                max_integration_timestep = max_integration_timestep, 
+                relative_tolerance = relative_tolerance,
+                absolute_tolerance = absolute_tolerance
+                )
+
+            lyap_estimates[k,:] = vcat([alpha_x, alpha_y, alpha_z], [mean, std, ste])
+        end
+    else
+        Threads.@threads for k in 1:size(coupling_strength_range[1],1)
+            alpha_x = coupling_strength_range[1][k]
+            alpha_y = coupling_strength_range[2][k]
+            alpha_z = coupling_strength_range[3][k]
+            
+            test_params = SystemParameters(
+                StaticArrays.@SVector[alpha_x,alpha_y,alpha_z], 
+                p.numberofcouplingregions, 
+                p.couplingpoints, 
+                p.couplingradii)
+
+            mean, std, ste = compute_maximum_lyapunov_exponent_linearized_discontinuity_handling(
+                ode, system_name, 
+                test_params; 
+                x0 = x0, 
+                simulation_time = simulation_time, 
+                transient_time = transient_time, 
+                number_of_lyap_samples = number_of_lyap_samples,
+                max_integration_timestep = max_integration_timestep, 
+                relative_tolerance = relative_tolerance,
+                absolute_tolerance = absolute_tolerance
+                )
+
+            lyap_estimates[k,:] = vcat([alpha], [mean, std, ste])
+        end
+    end
+
+    DelimitedFiles.writedlm(DrWatson.datadir(system_name, lyap_scan_filename), lyap_estimates, '\t')
+
 end

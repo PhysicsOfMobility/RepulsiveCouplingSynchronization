@@ -5,7 +5,7 @@ import StaticArrays
 import Printf
 
 
-coupling_strength = StaticArrays.@SVector[1.0, 0.0, 0.0]
+coupling_strength = StaticArrays.@SVector[0.0, 0.0, 1.0]
 
 number_of_coupling_regions_to_compute = 20
 
