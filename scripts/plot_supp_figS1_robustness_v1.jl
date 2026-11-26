@@ -134,10 +134,10 @@ simulate_linearized_trajectory(roesslerODE_coupled_linear,"roessler",systemparam
 
 
 
-#synch_error_data_opt_full_nonlinear = DelimitedFiles.readdlm(DrWatson.datadir("roessler","nl__couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled__optimal_coupling__alpha_-1.00_0.00_0.00__disc_m_15__traj_plot.tsv"), '\t', Float64)
-#init_state_nonlinear  = synch_error_data_opt_full[1,2:7]
-#
-#simulate_nonlinear_trajectory(roesslerODE_coupled,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4]-init_state[1], init_state[5]-init_state[2], init_state[6]-init_state[3]], simulation_time = 1.0e6, transient_time = 0.0, sampling = true, output_filename = "nl__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison__disc.tsv", sampling_timestep = 1.0)
+synch_error_data_opt_full_nonlinear = DelimitedFiles.readdlm(DrWatson.datadir("roessler","nl__couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled__optimal_coupling__alpha_-1.00_0.00_0.00__disc_m_15__traj_plot.tsv"), '\t', Float64)
+init_state_nonlinear  = synch_error_data_opt_full[1,2:7]
+
+simulate_nonlinear_trajectory(roesslerODE_coupled,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4]-init_state[1], init_state[5]-init_state[2], init_state[6]-init_state[3]], simulation_time = 1.0e6, transient_time = 0.0, sampling = true, output_filename = "nl__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison__disc.tsv", sampling_timestep = 1.0)
 
 
 
@@ -667,7 +667,7 @@ lines!(
 )
 
 
-lyap_scan_opt_data = DelimitedFiles.readdlm(DrWatson.datadir("roessler","lyap_scan__couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled__optimal_coupling__alpha_1.00_0.00_0.00_ncr_15__disc.tsv"), '\t', Float64)
+lyap_scan_opt_data = DelimitedFiles.readdlm(DrWatson.datadir("roessler","lyap_scan__couplingregions_equidist__dist_0.50__cfrac_0.01__reshuffled__optimal_coupling__alpha_-1.00_0.00_0.00_ncr_15__disc.tsv"), '\t', Float64)
 lines!(
     axis_panel_e,
     lyap_scan_opt_data[:,1],lyap_scan_opt_data[:,4],

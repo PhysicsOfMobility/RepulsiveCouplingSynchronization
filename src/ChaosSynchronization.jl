@@ -61,9 +61,6 @@ export
     simulate_linearized_optimal_coupling_trajectory_discontinuity_handling,
     scan_maximum_lyapunov_exponent_discontinuity_handling
 
-
-include("ChaosSynchronizationMakieStyle.jl")
-
 include("ChaosSynchronizationPlot.jl")
 export 
     attractor_plot,

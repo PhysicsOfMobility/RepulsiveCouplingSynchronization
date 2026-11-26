@@ -21,11 +21,11 @@ for coupling_region_filename in coupling_region_filename_list
     )
 end
 
-for coupling_region_filename in coupling_region_filename_list
-    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
-    couplingregion_lyap_effect_plot(
-        "chen", 
-        data_filename
-    )
-end
+#for coupling_region_filename in coupling_region_filename_list
+#    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
+#    couplingregion_lyap_effect_plot(
+#        "chen", 
+#        data_filename
+#    )
+#end
 

@@ -4,7 +4,7 @@ using DrWatson
 import StaticArrays
 import Printf
 
-coupling_strength = StaticArrays.@SVector[0.0, 1.0, 0.0]
+coupling_strength = StaticArrays.@SVector[1.0, 0.0, 0.0]
 
 coupling_region_filename_list = 
 [
@@ -21,11 +21,11 @@ for coupling_region_filename in coupling_region_filename_list
     )
 end
 
-for coupling_region_filename in coupling_region_filename_list
-    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
-    couplingregion_lyap_effect_plot(
-        "chua", 
-        data_filename
-    )
-end
+#for coupling_region_filename in coupling_region_filename_list
+#    data_filename = string(coupling_region_filename[1:end-4], "__lyap_effect__alpha_",Printf.@sprintf("%.2f",coupling_strength[1]),"_",Printf.@sprintf("%.2f",coupling_strength[2]),"_",Printf.@sprintf("%.2f",coupling_strength[3]),".tsv")
+#    couplingregion_lyap_effect_plot(
+#        "chua", 
+#        data_filename
+#    )
+#end
 

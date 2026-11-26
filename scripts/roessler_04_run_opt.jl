@@ -4,7 +4,6 @@ using DrWatson
 import StaticArrays
 import Printf
 
-
 coupling_strength = StaticArrays.@SVector[-0.5, 0.0, 0.0]
 
 number_of_coupling_regions_to_compute = 20

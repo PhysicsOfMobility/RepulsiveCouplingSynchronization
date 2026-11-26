@@ -128,12 +128,11 @@ systemparameters_uncoupled = SystemParameters(
     Float64[]
 )
 
-# uncomment to rerun linearized comparison trajectory
-#simulate_linearized_trajectory(roesslerODE_coupled_linear,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4], init_state[5], init_state[6]], transient_time = 0.0, sampling = true, output_filename = "linearized__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison.tsv", sampling_timestep = 0.01, simulation_time = 10000.0)
+#linearized comparison trajectory
+simulate_linearized_trajectory(roesslerODE_coupled_linear,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4], init_state[5], init_state[6]], transient_time = 0.0, sampling = true, output_filename = "linearized__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison.tsv", sampling_timestep = 0.01, simulation_time = 10000.0)
 
-
-# uncomment to rerun nonliear comparison trajectory
-#simulate_nonlinear_trajectory(roesslerODE_coupled,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4]-init_state[1], init_state[5]-init_state[2], init_state[6]-init_state[3]], simulation_time = 1.0e6, transient_time = 0.0, sampling = true, output_filename = "nonlinear__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison.tsv", sampling_timestep = 1.0)
+#nonliear comparison trajectory
+simulate_nonlinear_trajectory(roesslerODE_coupled,"roessler",systemparameters_uncoupled; initial_state_index = -1, fixed_x0 = StaticArrays.@SVector[init_state[1], init_state[2], init_state[3]], delta_x0 = StaticArrays.@SVector[init_state[4]-init_state[1], init_state[5]-init_state[2], init_state[6]-init_state[3]], simulation_time = 1.0e6, transient_time = 0.0, sampling = true, output_filename = "nonlinear__xcoupled_trajectory_plot__alpha_-1.00_0.00_0.00__uncoupled_comparison.tsv", sampling_timestep = 1.0)
 
 
 #structure of figure
